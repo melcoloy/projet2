@@ -377,6 +377,6 @@ with tab_recherche:
                 ]
                 st.dataframe(resultats, use_container_width=True)
             else:
-                st.warning("Aucune salle n'est disponible pour ce créneau et ces critères")
+                st.warning("Aucune salle n'est disponible pour ce créneau et ces critères.")
         except ValueError as err:
             st.error(f"Paramètres invalides : {err}")
