@@ -1,3 +1,11 @@
+from datetime import timedelta
+
+
+def lundi_de_la_semaine(jour):
+    """Renvoie le lundi de la semaine contenant jour."""
+    return jour - timedelta(days=jour.weekday())
+
+
 def _en_minutes(heure):
     heures, minutes = heure.split(":")
     return int(heures) * 60 + int(minutes)

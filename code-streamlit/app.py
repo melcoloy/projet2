@@ -1,11 +1,13 @@
 import sqlite3
 from contextlib import closing, contextmanager
-from datetime import time
+from datetime import time, timedelta
 
 import streamlit as st
 
 from base import ouvrir_base
-from regles import verifier_reservation
+from regles import lundi_de_la_semaine, verifier_reservation
+
+JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
 
 @contextmanager
@@ -213,6 +215,53 @@ if salles:
 
 if "message_reservation" in st.session_state:
     st.success(st.session_state.pop("message_reservation"))
+
+if salles:
+    st.subheader("Planning d'une salle")
+    id_planning = st.selectbox(
+        "Salle",
+        options=list(salles_par_id),
+        format_func=lambda salle_id: salles_par_id[salle_id]["nom"],
+        key="planning_salle",
+    )
+    date_planning = st.date_input("Date de la semaine", key="planning_date")
+    lundi = lundi_de_la_semaine(date_planning)
+    dimanche = lundi + timedelta(days=6)
+
+    with connexion() as conn:
+        reservations_semaine = conn.execute(
+            """
+            SELECT personne, date, debut, fin, participants
+            FROM reservations
+            WHERE salle_id = ? AND date BETWEEN ? AND ?
+            ORDER BY date, debut
+            """,
+            [id_planning, lundi.isoformat(), dimanche.isoformat()],
+        ).fetchall()
+
+    reservations_par_jour = {}
+    for reservation in reservations_semaine:
+        reservations_par_jour.setdefault(reservation["date"], []).append(reservation)
+
+    for decalage, nom_jour in enumerate(JOURS):
+        jour = lundi + timedelta(days=decalage)
+        st.markdown(f"**{nom_jour} {jour.isoformat()}**")
+        reservations_du_jour = reservations_par_jour.get(jour.isoformat(), [])
+        if reservations_du_jour:
+            st.dataframe(
+                [
+                    {
+                        "Personne": reservation["personne"],
+                        "Début": reservation["debut"],
+                        "Fin": reservation["fin"],
+                        "Participants": reservation["participants"],
+                    }
+                    for reservation in reservations_du_jour
+                ],
+                hide_index=True,
+            )
+        else:
+            st.caption("Aucune réservation.")
 
 with connexion() as conn:
     reservations = conn.execute(

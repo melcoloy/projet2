@@ -1,8 +1,21 @@
+from datetime import date
+
 import pytest
 
-from regles import verifier_reservation
+from regles import lundi_de_la_semaine, verifier_reservation
 
 RESERVATIONS = [{"debut": "10:00", "fin": "12:00"}]
+
+
+@pytest.mark.parametrize(
+    "jour, attendu",
+    [
+        (date(2026, 11, 12), date(2026, 11, 9)),
+        (date(2026, 11, 15), date(2026, 11, 9)),
+    ],
+)
+def test_lundi_de_la_semaine(jour, attendu):
+    assert lundi_de_la_semaine(jour) == attendu
 
 
 @pytest.mark.parametrize(
