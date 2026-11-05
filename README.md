@@ -74,7 +74,7 @@ Le framework (Flask ou Streamlit), l’organisation du code et l’interface. La
 
 # Démarrer
 
-Python 3.11 ou plus est nécessaire.
+Python 3.11 ou + est nécessaire.
 
 ## Préparer Git
 
