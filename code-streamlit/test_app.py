@@ -25,9 +25,11 @@ def page(tmp_path, monkeypatch):
 
 
 def test_accueil(page):
-    assert page.header[0].value == "Salles"
-    noms = page.dataframe[0].value["Nom"].tolist()
-    assert "S1" in noms
+    assert "Réservation de salles" in page.title[0].value
+    tableau = next(
+        element for element in page.dataframe if "Nom" in element.value
+    )
+    assert "S1" in tableau.value["Nom"].tolist()
 
 
 def test_ajouter_salle(page):
@@ -277,8 +279,11 @@ def test_reserver_salle_ou_date_differente(page, nom_salle, date_reservation):
 def test_liste_des_reservations(page):
     textes = [str(element.value) for element in page.markdown]
 
-    for attendu in ("**Salle**", "S1", "Alice", "2026-11-09", "10:00", "12:00", "12"):
-        assert attendu in textes
+    assert "**S1**" in textes
+    assert "Alice" in textes
+    assert any("2026-11-09" in texte and "10:00" in texte and "12:00" in texte
+               for texte in textes)
+    assert "12 participants" in textes
     assert page.button(key="annuler_1").label == "Annuler"
 
 
