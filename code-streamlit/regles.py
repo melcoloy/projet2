@@ -11,6 +11,9 @@ def verifier_reservation(reservations, capacite, debut, fin, participants):
     debut_minutes = _en_minutes(debut)
     fin_minutes = _en_minutes(fin)
 
+    if fin_minutes <= debut_minutes:
+        return "La réservation doit se terminer après son début."
+
     if debut_minutes < 8 * 60 or fin_minutes > 20 * 60:
         return "La réservation doit avoir lieu entre 8 h et 20 h."
 
@@ -20,6 +23,8 @@ def verifier_reservation(reservations, capacite, debut, fin, participants):
     if duree > 4 * 60:
         return "La réservation doit durer au plus 4 heures."
 
+    if participants < 1:
+        return "Le nombre de participants doit être au moins 1."
     if participants > capacite:
         return f"La salle ne peut accueillir que {capacite} participants."
 

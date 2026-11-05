@@ -25,6 +25,8 @@ with connexion() as conn:
         "SELECT id, nom, capacite, projecteur FROM salles ORDER BY nom"
     ).fetchall()
 
+salles_par_id = {salle["id"]: salle for salle in salles}
+
 st.header("Salles")
 if salles:
     st.dataframe(
@@ -65,7 +67,6 @@ if ajouter:
 
 if salles:
     st.subheader("Modifier une salle")
-    salles_par_id = {salle["id"]: salle for salle in salles}
     id_modifie = st.selectbox(
         "Salle à modifier",
         options=list(salles_par_id),
@@ -137,7 +138,6 @@ if salles:
 
 if salles:
     st.subheader("Réserver une salle")
-    salles_par_id = {salle["id"]: salle for salle in salles}
     with st.form("reserver_salle"):
         id_salle = st.selectbox(
             "Salle",
@@ -161,26 +161,55 @@ if salles:
         reserver = st.form_submit_button("Réserver", key="reserver_salle")
 
     if reserver:
-        salle = salles_par_id[id_salle]
+        personne_texte = personne.strip()
         date_texte = date_reservation.isoformat()
         debut_texte = debut.strftime("%H:%M")
         fin_texte = fin.strftime("%H:%M")
-        with connexion() as conn:
-            reservations = conn.execute(
-                "SELECT debut, fin FROM reservations WHERE salle_id = ? AND date = ?",
-                [id_salle, date_texte],
-            ).fetchall()
-        refus = verifier_reservation(
-            reservations, salle["capacite"], debut_texte, fin_texte, participants
-        )
+        refus = None
+        if not personne_texte:
+            refus = "Le nom de la personne est obligatoire."
+        else:
+            try:
+                with connexion() as conn:
+                    salle = conn.execute(
+                        "SELECT capacite FROM salles WHERE id = ?", [id_salle]
+                    ).fetchone()
+                    if salle is None:
+                        refus = "Cette salle n'existe plus."
+                    else:
+                        reservations = conn.execute(
+                            "SELECT debut, fin FROM reservations WHERE salle_id = ? AND date = ?",
+                            [id_salle, date_texte],
+                        ).fetchall()
+                        refus = verifier_reservation(
+                            reservations,
+                            salle["capacite"],
+                            debut_texte,
+                            fin_texte,
+                            participants,
+                        )
+                        if not refus:
+                            conn.execute(
+                                "INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
+                                [
+                                    id_salle,
+                                    personne_texte,
+                                    date_texte,
+                                    debut_texte,
+                                    fin_texte,
+                                    participants,
+                                ],
+                            )
+            except sqlite3.IntegrityError:
+                refus = "Cette salle n'existe plus."
         if refus:
             st.error(refus)
         else:
-            with connexion() as conn:
-                conn.execute(
-                    "INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
-                    [id_salle, personne, date_texte, debut_texte, fin_texte, participants],
-                )
-            st.success(
-                f"Réservation enregistrée pour {personne} le {date_texte} de {debut_texte} à {fin_texte}."
+            st.session_state["message_reservation"] = (
+                f"Réservation enregistrée pour {personne_texte} le {date_texte} "
+                f"de {debut_texte} à {fin_texte}."
             )
+            st.rerun()
+
+if "message_reservation" in st.session_state:
+    st.success(st.session_state.pop("message_reservation"))

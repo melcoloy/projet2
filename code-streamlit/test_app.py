@@ -184,6 +184,38 @@ def test_reserver_les_six_cas_du_tableau(
         assert len(_reservations()) == 1
 
 
+def test_reserver_sans_personne(page):
+    id_s1 = _id_par_nom("S1")
+    page.selectbox(key="reservation_salle").select(id_s1)
+    page.date_input(key="reservation_date").set_value(date(2026, 11, 10))
+    page.form_submit_button(key="reserver_salle").click()
+    page.run()
+
+    assert not page.exception
+    assert any("obligatoire" in erreur.value for erreur in page.error)
+    assert len(_reservations()) == 1
+
+
+@pytest.mark.parametrize(
+    "nom_salle, date_reservation",
+    [("S2", date(2026, 11, 9)), ("S1", date(2026, 11, 10))],
+    ids=["autre-salle", "autre-date"],
+)
+def test_reserver_salle_ou_date_differente(page, nom_salle, date_reservation):
+    page.selectbox(key="reservation_salle").select(_id_par_nom(nom_salle))
+    page.text_input(key="reservation_personne").set_value("Bob")
+    page.date_input(key="reservation_date").set_value(date_reservation)
+    page.time_input(key="reservation_debut").set_value(time(10, 0))
+    page.time_input(key="reservation_fin").set_value(time(12, 0))
+    page.number_input(key="reservation_participants").set_value(5)
+    page.form_submit_button(key="reserver_salle").click()
+    page.run()
+
+    assert not page.exception
+    assert any(succes.value for succes in page.success)
+    assert len(_reservations()) == 2
+
+
 def _salles():
     with base.ouvrir_base() as conn:
         return conn.execute("SELECT * FROM salles").fetchall()
