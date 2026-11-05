@@ -213,3 +213,38 @@ if salles:
 
 if "message_reservation" in st.session_state:
     st.success(st.session_state.pop("message_reservation"))
+
+with connexion() as conn:
+    reservations = conn.execute(
+        """
+        SELECT r.id, s.nom AS salle, r.personne, r.date, r.debut, r.fin, r.participants
+        FROM reservations r
+        JOIN salles s ON s.id = r.salle_id
+        ORDER BY r.date, r.debut, s.nom
+        """
+    ).fetchall()
+
+st.subheader("Réservations")
+if reservations:
+    colonnes_entete = st.columns([2, 2, 2, 1, 1, 1, 1])
+    for colonne, libelle in zip(
+        colonnes_entete,
+        ["Salle", "Personne", "Date", "Début", "Fin", "Participants", ""],
+    ):
+        colonne.markdown(f"**{libelle}**")
+    for reservation in reservations:
+        colonnes = st.columns([2, 2, 2, 1, 1, 1, 1])
+        colonnes[0].write(reservation["salle"])
+        colonnes[1].write(reservation["personne"])
+        colonnes[2].write(reservation["date"])
+        colonnes[3].write(reservation["debut"])
+        colonnes[4].write(reservation["fin"])
+        colonnes[5].write(str(reservation["participants"]))
+        if colonnes[6].button("Annuler", key=f"annuler_{reservation['id']}"):
+            with connexion() as conn:
+                conn.execute(
+                    "DELETE FROM reservations WHERE id = ?", [reservation["id"]]
+                )
+            st.rerun()
+else:
+    st.info("Aucune réservation.")

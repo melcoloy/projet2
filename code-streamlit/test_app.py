@@ -216,6 +216,23 @@ def test_reserver_salle_ou_date_differente(page, nom_salle, date_reservation):
     assert len(_reservations()) == 2
 
 
+def test_liste_des_reservations(page):
+    textes = [str(element.value) for element in page.markdown]
+
+    for attendu in ("**Salle**", "S1", "Alice", "2026-11-09", "10:00", "12:00", "12"):
+        assert attendu in textes
+    assert page.button(key="annuler_1").label == "Annuler"
+
+
+def test_annuler_reservation(page):
+    page.button(key="annuler_1").click()
+    page.run()
+
+    assert not page.exception
+    assert _reservations() == []
+    assert any("Aucune réservation" in info.value for info in page.info)
+
+
 def _salles():
     with base.ouvrir_base() as conn:
         return conn.execute("SELECT * FROM salles").fetchall()
