@@ -157,7 +157,7 @@ def test_supprimer_salle_supprime_ses_reservations(page):
         (date(2026, 11, 9), time(11, 0), time(13, 0), 5, "déjà réservée"),
         (date(2026, 11, 9), time(12, 0), time(13, 0), 5, None),
         (date(2026, 11, 9), time(14, 0), time(15, 0), 25, "participants"),
-        (date(2026, 11, 9), time(7, 30), time(9, 0), 5, "8 h"),
+        (date(2026, 11, 9), time(7, 30), time(9, 0), 5, "ouverte de 08:00"),
         (date(2026, 11, 10), time(14, 0), time(14, 20), 5, "30 minutes"),
         (date(2026, 11, 10), time(8, 0), time(13, 0), 5, "4 heures"),
     ],
@@ -190,6 +190,56 @@ def test_reserver_les_six_cas_du_tableau(
     else:
         assert any(attendu in erreur.value for erreur in page.error)
         assert len(_reservations()) == 1
+
+
+def test_modifier_les_horaires_de_la_salle(page):
+    id_s1 = _id_par_nom("S1")
+    page.time_input(key=f"modif_ouverture_{id_s1}").set_value(time(9, 0))
+    page.time_input(key=f"modif_fermeture_{id_s1}").set_value(time(17, 0))
+    page.form_submit_button(key="enregistrer_salle").click()
+    page.run()
+
+    assert not page.exception
+    salle = _salle_par_id(id_s1)
+    assert salle["ouverture"] == "09:00"
+    assert salle["fermeture"] == "17:00"
+
+
+def test_refuse_les_horaires_hors_du_batiment(page):
+    id_s1 = _id_par_nom("S1")
+    page.time_input(key=f"modif_ouverture_{id_s1}").set_value(time(7, 0))
+    page.form_submit_button(key="enregistrer_salle").click()
+    page.run()
+
+    assert any("bâtiment est ouvert" in erreur.value for erreur in page.error)
+    assert _salle_par_id(id_s1)["ouverture"] == "08:00"
+
+
+def test_reserver_hors_des_horaires_de_la_salle(page):
+    """S2 ouvre à 09:00 : une réservation à 08:00 est refusée, à 09:00 elle passe."""
+    id_s2 = _id_par_nom("S2")
+    assert _salle_par_id(id_s2)["ouverture"] == "09:00"
+
+    page.selectbox(key="reservation_salle").select(id_s2)
+    page.text_input(key="reservation_personne").set_value("Bob")
+    page.date_input(key="reservation_date").set_value(date(2026, 11, 10))
+    page.time_input(key="reservation_debut").set_value(time(8, 0))
+    page.time_input(key="reservation_fin").set_value(time(9, 0))
+    page.number_input(key="reservation_participants").set_value(4)
+    page.form_submit_button(key="reserver_salle").click()
+    page.run()
+
+    assert any("ouverte de 09:00" in erreur.value for erreur in page.error)
+    assert len(_reservations()) == 1
+
+    page.time_input(key="reservation_debut").set_value(time(9, 0))
+    page.time_input(key="reservation_fin").set_value(time(10, 0))
+    page.form_submit_button(key="reserver_salle").click()
+    page.run()
+
+    assert not page.exception
+    assert any(succes.value for succes in page.success)
+    assert len(_reservations()) == 2
 
 
 def test_reserver_sans_personne(page):

@@ -5,7 +5,11 @@ from datetime import time, timedelta
 import streamlit as st
 
 from base import ouvrir_base
-from regles import lundi_de_la_semaine, verifier_reservation
+from regles import (
+    lundi_de_la_semaine,
+    verifier_horaires_salle,
+    verifier_reservation,
+)
 
 JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
@@ -20,11 +24,17 @@ def normaliser_nom(nom):
     return nom.strip().casefold()
 
 
+def en_heure(texte):
+    """Convertit « HH:MM » en datetime.time, pour les champs du formulaire."""
+    heures, minutes = texte.split(":")
+    return time(int(heures), int(minutes))
+
+
 st.title("Réservation de salles")
 
 with connexion() as conn:
     salles = conn.execute(
-        "SELECT id, nom, capacite, projecteur FROM salles ORDER BY nom"
+        "SELECT id, nom, capacite, projecteur, ouverture, fermeture FROM salles ORDER BY nom"
     ).fetchall()
 
 salles_par_id = {salle["id"]: salle for salle in salles}
@@ -37,6 +47,8 @@ if salles:
                 "Nom": salle["nom"],
                 "Capacité": salle["capacite"],
                 "Projecteur": "oui" if salle["projecteur"] else "non",
+                "Ouverture": salle["ouverture"],
+                "Fermeture": salle["fermeture"],
             }
             for salle in salles
         ]
@@ -49,18 +61,33 @@ with st.form("ajouter_salle"):
     nom = st.text_input("Nom", key="ajout_nom")
     capacite = st.number_input("Capacité", min_value=1, value=10, key="ajout_capacite")
     projecteur = st.checkbox("Projecteur", key="ajout_projecteur")
+    ouverture = st.time_input("Ouverture", value=time(8, 0), key="ajout_ouverture")
+    fermeture = st.time_input("Fermeture", value=time(20, 0), key="ajout_fermeture")
     ajouter = st.form_submit_button("Ajouter", key="ajouter_salle")
 
 if ajouter:
     candidat = nom.strip()
+    ouverture_texte = ouverture.strftime("%H:%M")
+    fermeture_texte = fermeture.strftime("%H:%M")
+    refus_salle = verifier_horaires_salle(ouverture_texte, fermeture_texte)
     if not candidat:
         st.error("Le nom est obligatoire.")
+    elif refus_salle:
+        st.error(refus_salle)
     else:
         try:
             with connexion() as conn:
                 conn.execute(
-                    "INSERT INTO salles (nom, nom_normalise, capacite, projecteur) VALUES (?, ?, ?, ?)",
-                    [candidat, normaliser_nom(candidat), capacite, int(projecteur)],
+                    "INSERT INTO salles (nom, nom_normalise, capacite, projecteur, ouverture, fermeture)"
+                    " VALUES (?, ?, ?, ?, ?, ?)",
+                    [
+                        candidat,
+                        normaliser_nom(candidat),
+                        capacite,
+                        int(projecteur),
+                        ouverture_texte,
+                        fermeture_texte,
+                    ],
                 )
         except sqlite3.IntegrityError:
             st.error(f"La salle « {candidat} » existe déjà.")
@@ -91,22 +118,40 @@ if salles:
             value=bool(salle["projecteur"]),
             key=f"modif_projecteur_{id_modifie}",
         )
+        ouverture_modifiee = st.time_input(
+            "Ouverture",
+            value=en_heure(salle["ouverture"]),
+            key=f"modif_ouverture_{id_modifie}",
+        )
+        fermeture_modifiee = st.time_input(
+            "Fermeture",
+            value=en_heure(salle["fermeture"]),
+            key=f"modif_fermeture_{id_modifie}",
+        )
         enregistrer = st.form_submit_button("Enregistrer", key="enregistrer_salle")
 
     if enregistrer:
         candidat = nom_modifie.strip()
+        ouverture_texte = ouverture_modifiee.strftime("%H:%M")
+        fermeture_texte = fermeture_modifiee.strftime("%H:%M")
+        refus_salle = verifier_horaires_salle(ouverture_texte, fermeture_texte)
         if not candidat:
             st.error("Le nom est obligatoire.")
+        elif refus_salle:
+            st.error(refus_salle)
         else:
             try:
                 with connexion() as conn:
                     conn.execute(
-                        "UPDATE salles SET nom = ?, nom_normalise = ?, capacite = ?, projecteur = ? WHERE id = ?",
+                        "UPDATE salles SET nom = ?, nom_normalise = ?, capacite = ?, projecteur = ?,"
+                        " ouverture = ?, fermeture = ? WHERE id = ?",
                         [
                             candidat,
                             normaliser_nom(candidat),
                             capacite_modifiee,
                             int(projecteur_modifie),
+                            ouverture_texte,
+                            fermeture_texte,
                             id_modifie,
                         ],
                     )
@@ -174,7 +219,8 @@ if salles:
             try:
                 with connexion() as conn:
                     salle = conn.execute(
-                        "SELECT capacite FROM salles WHERE id = ?", [id_salle]
+                        "SELECT capacite, ouverture, fermeture FROM salles WHERE id = ?",
+                        [id_salle],
                     ).fetchone()
                     if salle is None:
                         refus = "Cette salle n'existe plus."
@@ -189,6 +235,8 @@ if salles:
                             debut_texte,
                             fin_texte,
                             participants,
+                            salle["ouverture"],
+                            salle["fermeture"],
                         )
                         if not refus:
                             conn.execute(
