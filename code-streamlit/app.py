@@ -241,10 +241,32 @@ if reservations:
         colonnes[4].write(reservation["fin"])
         colonnes[5].write(str(reservation["participants"]))
         if colonnes[6].button("Annuler", key=f"annuler_{reservation['id']}"):
-            with connexion() as conn:
-                conn.execute(
-                    "DELETE FROM reservations WHERE id = ?", [reservation["id"]]
-                )
+            st.session_state["annulation_a_confirmer"] = reservation["id"]
             st.rerun()
+
+    id_a_annuler = st.session_state.get("annulation_a_confirmer")
+    if id_a_annuler is not None:
+        reservation = next(
+            (r for r in reservations if r["id"] == id_a_annuler), None
+        )
+        if reservation is None:
+            st.session_state.pop("annulation_a_confirmer", None)
+        else:
+            st.warning(
+                f"Annuler la réservation de {reservation['personne']} "
+                f"le {reservation['date']} de {reservation['debut']} "
+                f"à {reservation['fin']} ?"
+            )
+            if st.button("Confirmer l'annulation", key="confirmer_annulation"):
+                with connexion() as conn:
+                    conn.execute(
+                        "DELETE FROM reservations WHERE id = ?", [id_a_annuler]
+                    )
+                st.session_state.pop("annulation_a_confirmer", None)
+                st.session_state["message_reservation"] = "Réservation annulée."
+                st.rerun()
+            if st.button("Renoncer", key="renoncer_annulation"):
+                st.session_state.pop("annulation_a_confirmer", None)
+                st.rerun()
 else:
     st.info("Aucune réservation.")

@@ -228,9 +228,35 @@ def test_annuler_reservation(page):
     page.button(key="annuler_1").click()
     page.run()
 
+    assert len(_reservations()) == 1
+    page.button(key="confirmer_annulation").click()
+    page.run()
+
     assert not page.exception
     assert _reservations() == []
     assert any("Aucune réservation" in info.value for info in page.info)
+    assert any("annulée" in succes.value for succes in page.success)
+
+
+def test_annuler_une_seule_reservation(page):
+    with base.ouvrir_base() as conn:
+        conn.execute(
+            "INSERT INTO reservations (id, salle_id, personne, date, debut, fin, participants) "
+            "VALUES (2, 1, 'Bob', '2026-11-09', '13:00', '14:00', 5)"
+        )
+    page.run()
+
+    page.button(key="annuler_1").click()
+    page.run()
+    assert len(_reservations()) == 2
+
+    page.button(key="confirmer_annulation").click()
+    page.run()
+
+    assert not page.exception
+    restantes = _reservations()
+    assert [reservation["id"] for reservation in restantes] == [2]
+    assert restantes[0]["personne"] == "Bob"
 
 
 def _salles():
