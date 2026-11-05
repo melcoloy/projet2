@@ -1,3 +1,4 @@
+import sqlite3
 from contextlib import closing, contextmanager
 
 import streamlit as st
@@ -11,13 +12,8 @@ def connexion():
         yield conn
 
 
-def nom_salle_utilise(conn, nom, salle_id=None):
-    requete = "SELECT 1 FROM salles WHERE nom = ? COLLATE NOCASE"
-    parametres = [nom]
-    if salle_id is not None:
-        requete += " AND id != ?"
-        parametres.append(salle_id)
-    return conn.execute(requete, parametres).fetchone() is not None
+def normaliser_nom(nom):
+    return nom.strip().casefold()
 
 
 st.title("Réservation de salles")
@@ -54,14 +50,13 @@ if ajouter:
     if not candidat:
         st.error("Le nom est obligatoire.")
     else:
-        with connexion() as conn:
-            deja_utilise = nom_salle_utilise(conn, candidat)
-            if not deja_utilise:
+        try:
+            with connexion() as conn:
                 conn.execute(
-                    "INSERT INTO salles (nom, capacite, projecteur) VALUES (?, ?, ?)",
-                    [candidat, capacite, int(projecteur)],
+                    "INSERT INTO salles (nom, nom_normalise, capacite, projecteur) VALUES (?, ?, ?, ?)",
+                    [candidat, normaliser_nom(candidat), capacite, int(projecteur)],
                 )
-        if deja_utilise:
+        except sqlite3.IntegrityError:
             st.error(f"La salle « {candidat} » existe déjà.")
         else:
             st.rerun()
@@ -98,14 +93,19 @@ if salles:
         if not candidat:
             st.error("Le nom est obligatoire.")
         else:
-            with connexion() as conn:
-                deja_utilise = nom_salle_utilise(conn, candidat, id_modifie)
-                if not deja_utilise:
+            try:
+                with connexion() as conn:
                     conn.execute(
-                        "UPDATE salles SET nom = ?, capacite = ?, projecteur = ? WHERE id = ?",
-                        [candidat, capacite_modifiee, int(projecteur_modifie), id_modifie],
+                        "UPDATE salles SET nom = ?, nom_normalise = ?, capacite = ?, projecteur = ? WHERE id = ?",
+                        [
+                            candidat,
+                            normaliser_nom(candidat),
+                            capacite_modifiee,
+                            int(projecteur_modifie),
+                            id_modifie,
+                        ],
                     )
-            if deja_utilise:
+            except sqlite3.IntegrityError:
                 st.error(f"La salle « {candidat} » existe déjà.")
             else:
                 st.rerun()
@@ -121,7 +121,7 @@ if salles:
         st.caption("Les réservations de cette salle seront aussi supprimées.")
         confirmer = st.checkbox(
             "Je confirme la suppression de cette salle et de ses réservations.",
-            key="confirmer_suppression",
+            key=f"confirmer_suppression_{id_supprime}",
         )
         supprimer = st.form_submit_button("Supprimer", key="supprimer_salle")
 

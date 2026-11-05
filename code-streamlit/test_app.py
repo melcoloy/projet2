@@ -85,9 +85,39 @@ def test_modifier_salle_sans_nom(page):
     assert _salle_par_id(id_s1)["nom"] == "S1"
 
 
+def test_modifier_salle_change_seulement_la_casse(page):
+    id_s1 = _id_par_nom("S1")
+    page.text_input(key=f"modif_nom_{id_s1}").set_value("s1")
+    page.form_submit_button(key="enregistrer_salle").click()
+    page.run()
+
+    assert not page.exception
+    assert not page.error
+    assert _salle_par_id(id_s1)["nom"] == "s1"
+    assert len(_salles()) == 2
+
+
+def test_refuse_nom_de_salle_avec_accents_et_casse(page):
+    page.text_input(key="ajout_nom").set_value("École")
+    page.form_submit_button(key="ajouter_salle").click()
+    page.run()
+
+    assert not page.exception
+    assert _salle_par_nom("École")["nom"] == "École"
+
+    page.text_input(key="ajout_nom").set_value("école")
+    page.form_submit_button(key="ajouter_salle").click()
+    page.run()
+
+    assert any("existe déjà" in erreur.value for erreur in page.error)
+    noms = [salle["nom"] for salle in _salles() if salle["nom"].casefold() == "école"]
+    assert noms == ["École"]
+
+
 def test_supprimer_salle_sans_confirmation(page):
     id_s1 = _id_par_nom("S1")
     page.selectbox(key="salle_a_supprimer").select(id_s1)
+    page.run()
     page.form_submit_button(key="supprimer_salle").click()
     page.run()
 
@@ -98,7 +128,8 @@ def test_supprimer_salle_sans_confirmation(page):
 def test_supprimer_salle_supprime_ses_reservations(page):
     id_s1 = _id_par_nom("S1")
     page.selectbox(key="salle_a_supprimer").select(id_s1)
-    page.checkbox(key="confirmer_suppression").check()
+    page.run()
+    page.checkbox(key=f"confirmer_suppression_{id_s1}").check()
     page.form_submit_button(key="supprimer_salle").click()
     page.run()
 
