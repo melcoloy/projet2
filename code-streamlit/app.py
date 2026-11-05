@@ -1,10 +1,18 @@
+from contextlib import closing, contextmanager
+
 import streamlit as st
 
 from base import ouvrir_base
 
 
+@contextmanager
+def connexion():
+    with closing(ouvrir_base()) as conn, conn:
+        yield conn
+
+
 def nom_salle_utilise(conn, nom, salle_id=None):
-    requete = "SELECT 1 FROM salles WHERE nom = ?"
+    requete = "SELECT 1 FROM salles WHERE nom = ? COLLATE NOCASE"
     parametres = [nom]
     if salle_id is not None:
         requete += " AND id != ?"
@@ -14,7 +22,7 @@ def nom_salle_utilise(conn, nom, salle_id=None):
 
 st.title("Réservation de salles")
 
-with ouvrir_base() as conn:
+with connexion() as conn:
     salles = conn.execute(
         "SELECT id, nom, capacite, projecteur FROM salles ORDER BY nom"
     ).fetchall()
@@ -46,7 +54,7 @@ if ajouter:
     if not candidat:
         st.error("Le nom est obligatoire.")
     else:
-        with ouvrir_base() as conn:
+        with connexion() as conn:
             deja_utilise = nom_salle_utilise(conn, candidat)
             if not deja_utilise:
                 conn.execute(
@@ -69,16 +77,16 @@ if salles:
     )
     salle = salles_par_id[id_modifie]
     with st.form("modifier_salle"):
-        nom = st.text_input(
+        nom_modifie = st.text_input(
             "Nom", value=salle["nom"], key=f"modif_nom_{id_modifie}"
         )
-        capacite = st.number_input(
+        capacite_modifiee = st.number_input(
             "Capacité",
             min_value=1,
             value=salle["capacite"],
             key=f"modif_capacite_{id_modifie}",
         )
-        projecteur = st.checkbox(
+        projecteur_modifie = st.checkbox(
             "Projecteur",
             value=bool(salle["projecteur"]),
             key=f"modif_projecteur_{id_modifie}",
@@ -86,16 +94,16 @@ if salles:
         enregistrer = st.form_submit_button("Enregistrer", key="enregistrer_salle")
 
     if enregistrer:
-        candidat = nom.strip()
+        candidat = nom_modifie.strip()
         if not candidat:
             st.error("Le nom est obligatoire.")
         else:
-            with ouvrir_base() as conn:
+            with connexion() as conn:
                 deja_utilise = nom_salle_utilise(conn, candidat, id_modifie)
                 if not deja_utilise:
                     conn.execute(
                         "UPDATE salles SET nom = ?, capacite = ?, projecteur = ? WHERE id = ?",
-                        [candidat, capacite, int(projecteur), id_modifie],
+                        [candidat, capacite_modifiee, int(projecteur_modifie), id_modifie],
                     )
             if deja_utilise:
                 st.error(f"La salle « {candidat} » existe déjà.")
@@ -103,14 +111,24 @@ if salles:
                 st.rerun()
 
     st.subheader("Supprimer une salle")
-    id_supprime = st.selectbox(
-        "Salle à supprimer",
-        options=list(salles_par_id),
-        format_func=lambda salle_id: salles_par_id[salle_id]["nom"],
-        key="salle_a_supprimer",
-    )
-    st.caption("Les réservations de cette salle seront aussi supprimées.")
-    if st.button("Supprimer", key="supprimer_salle"):
-        with ouvrir_base() as conn:
-            conn.execute("DELETE FROM salles WHERE id = ?", [id_supprime])
-        st.rerun()
+    with st.form("supprimer_salle"):
+        id_supprime = st.selectbox(
+            "Salle à supprimer",
+            options=list(salles_par_id),
+            format_func=lambda salle_id: salles_par_id[salle_id]["nom"],
+            key="salle_a_supprimer",
+        )
+        st.caption("Les réservations de cette salle seront aussi supprimées.")
+        confirmer = st.checkbox(
+            "Je confirme la suppression de cette salle et de ses réservations.",
+            key="confirmer_suppression",
+        )
+        supprimer = st.form_submit_button("Supprimer", key="supprimer_salle")
+
+    if supprimer:
+        if not confirmer:
+            st.error("Veuillez confirmer la suppression.")
+        else:
+            with connexion() as conn:
+                conn.execute("DELETE FROM salles WHERE id = ?", [id_supprime])
+            st.rerun()
