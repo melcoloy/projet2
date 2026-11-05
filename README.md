@@ -1,3 +1,5 @@
+# Jonas Matteo et Clément (melcoloy)
+
 # Réservation de salles
 
 > **Permettre à chacun de réserver une salle du bâtiment, sans conflit et dans la limite de sa capacité.**
@@ -72,7 +74,7 @@ Le framework (Flask ou Streamlit), l’organisation du code et l’interface. La
 
 # Démarrer
 
-Python 3.11 ou plus est nécessaire.
+Python 3.11 ou + est nécessaire.
 
 ## Préparer Git
 

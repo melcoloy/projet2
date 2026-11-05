@@ -10,7 +10,15 @@ APP = Path(__file__).parent / "app.py"
 
 @pytest.fixture
 def page(tmp_path, monkeypatch):
+    """Base neuve réduite au scénario à vérifier : S1 de capacité 20,
+    réservée le lundi 9 novembre 2026 de 10 h à 12 h."""
     monkeypatch.setattr(base, "BASE", tmp_path / "data.db")
+    with base.ouvrir_base() as conn:
+        conn.execute("DELETE FROM reservations")
+        conn.execute(
+            "INSERT INTO reservations (id, salle_id, personne, date, debut, fin, participants) "
+            "VALUES (1, 1, 'Alice', '2026-11-09', '10:00', '12:00', 12)"
+        )
     page = AppTest.from_file(str(APP), default_timeout=60).run()
     assert not page.exception
     return page
