@@ -1,3 +1,4 @@
+from datetime import date, time
 from pathlib import Path
 
 import base
@@ -142,9 +143,55 @@ def test_supprimer_salle_supprime_ses_reservations(page):
     assert reservations == []
 
 
+@pytest.mark.parametrize(
+    "date_reservation, debut, fin, participants, attendu",
+    [
+        (date(2026, 11, 9), time(11, 0), time(13, 0), 5, "déjà réservée"),
+        (date(2026, 11, 9), time(12, 0), time(13, 0), 5, None),
+        (date(2026, 11, 9), time(14, 0), time(15, 0), 25, "participants"),
+        (date(2026, 11, 9), time(7, 30), time(9, 0), 5, "8 h"),
+        (date(2026, 11, 10), time(14, 0), time(14, 20), 5, "30 minutes"),
+        (date(2026, 11, 10), time(8, 0), time(13, 0), 5, "4 heures"),
+    ],
+    ids=[
+        "lundi-11h-13h-chevauchement",
+        "lundi-12h-13h-acceptee",
+        "lundi-14h-15h-capacite",
+        "lundi-7h30-9h-avant-8h",
+        "mardi-14h-14h20-moins-30min",
+        "mardi-8h-13h-plus-4h",
+    ],
+)
+def test_reserver_les_six_cas_du_tableau(
+    page, date_reservation, debut, fin, participants, attendu
+):
+    id_s1 = _id_par_nom("S1")
+    page.selectbox(key="reservation_salle").select(id_s1)
+    page.text_input(key="reservation_personne").set_value("Bob")
+    page.date_input(key="reservation_date").set_value(date_reservation)
+    page.time_input(key="reservation_debut").set_value(debut)
+    page.time_input(key="reservation_fin").set_value(fin)
+    page.number_input(key="reservation_participants").set_value(participants)
+    page.form_submit_button(key="reserver_salle").click()
+    page.run()
+
+    assert not page.exception
+    if attendu is None:
+        assert any(succes.value for succes in page.success)
+        assert len(_reservations()) == 2
+    else:
+        assert any(attendu in erreur.value for erreur in page.error)
+        assert len(_reservations()) == 1
+
+
 def _salles():
     with base.ouvrir_base() as conn:
         return conn.execute("SELECT * FROM salles").fetchall()
+
+
+def _reservations():
+    with base.ouvrir_base() as conn:
+        return conn.execute("SELECT * FROM reservations").fetchall()
 
 
 def _salle_par_nom(nom):
