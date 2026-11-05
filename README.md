@@ -10,10 +10,10 @@ Séance 2 · En binôme · Avec un agent de code, OpenCode ou Mistral Vibe.
 
 ## Votre parcours
 
-- [ ] **1. Coder et relire** : l'application en petites demandes, avec une revue de l'agent par fonctionnalité.
-- [ ] **2. Ajouter les skills** : à l'annonce en séance, continuez avec les skills et regardez ce qui change.
-- [ ] **3. Créer votre skill** : un skill pour la documentation de votre code.
-- [ ] **4. Faire évoluer** : une demande de changement sera annoncée en séance.
+- [x] **1. Coder et relire** : l'application en petites demandes, avec une revue de l'agent par fonctionnalité.
+- [x] **2. Ajouter les skills** : à l'annonce en séance, continuez avec les skills et regardez ce qui change.
+- [x] **3. Créer votre skill** : un skill pour la documentation de votre code.
+- [x] **4. Faire évoluer** : une demande de changement sera annoncée en séance.
 - [ ] **5. Bonus** : ajouter ce qui est dans « Si vous avez fini ».
 
 `AGENTS.md` est déjà rempli. Lisez-le et ajoutez ce que vous voulez dans « À vous d'ajouter ».
@@ -31,10 +31,10 @@ Dans un bâtiment universitaire, les salles se réservent par mail auprès du se
 
 ## Ce que l’application doit faire
 
-- [ ] Ajouter, modifier ou supprimer une salle
-- [ ] Réserver une salle au nom d’une personne
-- [ ] Annuler une réservation
-- [ ] Afficher le planning d’une salle sur une semaine
+- [x] Ajouter, modifier ou supprimer une salle
+- [x] Réserver une salle au nom d’une personne
+- [x] Annuler une réservation
+- [x] Afficher le planning d’une salle sur une semaine
 
 ## Les règles
 
@@ -42,6 +42,7 @@ Dans un bâtiment universitaire, les salles se réservent par mail auprès du se
 - Le nombre de participants ne dépasse pas la capacité de la salle.
 - Une réservation a lieu entre 8 h et 20 h et dure de 30 min à 4 h.
 - Supprimer une salle supprime ses réservations.
+- Chaque salle a ses propres horaires d’ouverture, dans ceux du bâtiment (8 h - 20 h).
 - Il n’y a pas d’authentification. La semaine va du lundi au dimanche.
 
 ## Pour vérifier
@@ -106,12 +107,12 @@ Gardez un dossier et supprimez l'autre. Chacun contient un `app.py` qui lit la b
 
 ## Installer et lancer
 
-Avec Streamlit, remplacez `code-flask` par `code-streamlit`.
+Ce dépôt garde `code-streamlit`.
 
 macOS ou Linux, depuis la racine du dépôt :
 
 ```bash
-cd code-flask
+cd code-streamlit
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -121,7 +122,7 @@ pytest
 Windows (PowerShell), depuis la racine du dépôt :
 
 ```powershell
-cd code-flask
+cd code-streamlit
 py -m venv .venv
 Set-ExecutionPolicy -Scope Process RemoteSigned
 .venv\Scripts\Activate.ps1
@@ -149,10 +150,10 @@ Vous travaillez dans `app.py`. `base.py` ouvre la base : vous n'avez pas besoin 
 
 | Table | Colonnes |
 |---|---|
-| `salles` | `id`, `nom`, `capacite`, `projecteur` |
+| `salles` | `id`, `nom`, `nom_normalise`, `capacite`, `projecteur`, `ouverture`, `fermeture` |
 | `reservations` | `id`, `salle_id`, `personne`, `date`, `debut`, `fin`, `participants` |
 
-`projecteur` vaut 1 ou 0. Les dates sont au format `2026-11-09` et les heures au format `10:00`.
+`projecteur` vaut 1 ou 0. `nom_normalise` sert à refuser deux salles de même nom. `ouverture` et `fermeture` sont au format `08:00`. Les dates sont au format `2026-11-09` et les heures au format `10:00`.
 
 ## Bien travailler avec l'agent
 
