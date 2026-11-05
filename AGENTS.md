@@ -32,3 +32,4 @@ Tables et exemples dans `base.sql`. `data.db` se crée au premier lancement. Sup
 - Mettre les règles de réservation dans code-streamlit/regles.py, en fonctions pures sans Streamlit ni base, pour les tester facilement.
 - Les tests ne touchent jamais data.db.
 - Ne rien ajouter qui n'est pas demandé.
+- Travailler sur la branche dev. Ne jamais faire de commit ni de push sur main.
