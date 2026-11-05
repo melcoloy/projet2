@@ -27,8 +27,8 @@ Tables et exemples dans `base.sql`. `data.db` se crée au premier lancement. Sup
 - Ne faire `git push` que si le binôme le demande.
 
 ## À vous d'ajouter
-<!-- Ajoutez ici ce que vous voulez que l'agent respecte. Par exemple :
+- On utilise Streamlit, dans code-streamlit.
+- Lancer les tests avec : cd code-streamlit puis .venv\Scripts\python -m pytest
+- Mettre les règles de réservation dans code-streamlit/regles.py, en fonctions pures sans Streamlit ni base, pour les tester facilement.
+- Les tests ne touchent jamais data.db.
 - Ne rien ajouter qui n'est pas demandé.
-- Mettre les règles dans un fichier `regles.py`, sans framework.
-- Utiliser une base séparée pour les tests.
--->
