@@ -15,6 +15,7 @@ def test_planning_et_onglets():
     page = AppTest.from_file(str(Path(__file__).parent / "app.py"), default_timeout=60).run()
     assert not page.exception
 
-    # Vérifie la présence des métriques et des sélecteurs
+    # Vérifie la présence des métriques, des sélecteurs et de la case de récurrence
     assert len(page.selectbox) >= 1
     assert len(page.date_input) >= 1
+    assert any("Répéter chaque semaine" in cb.label for cb in page.checkbox)

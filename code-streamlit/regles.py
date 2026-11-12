@@ -1,6 +1,14 @@
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional, Tuple, Union
 
+TYPES_SALLES_DEFAUT = [
+    "Salle de cours",
+    "Salle de réunion",
+    "Amphithéâtre",
+    "Salle informatique",
+    "Laboratoire",
+]
+
 
 def heure_en_minutes(h: Union[str, time]) -> int:
     """Convertit une heure ('HH:MM' ou datetime.time) en minutes depuis minuit."""
@@ -63,6 +71,13 @@ def valider_capacite(participants: int, capacite: int) -> None:
         )
 
 
+def valider_type_salle(type_salle: str) -> str:
+    """Vérifie que le local a un type non vide."""
+    if not isinstance(type_salle, str) or not type_salle.strip():
+        raise ValueError("Le type de salle ne peut pas être vide.")
+    return type_salle.strip()
+
+
 def sont_en_chevauchement(
     debut1: Union[str, time], fin1: Union[str, time],
     debut2: Union[str, time], fin2: Union[str, time]
@@ -79,23 +94,47 @@ def sont_en_chevauchement(
     return max(d1, d2) < min(f1, f2)
 
 
+def valider_non_chevauchement_personne(
+    personne: str,
+    debut: Union[str, time],
+    fin: Union[str, time],
+    reservations_personne: List[dict],
+    reservation_id_ignore: Optional[int] = None,
+) -> None:
+    """Vérifie qu'une même personne n'a pas deux réservations qui se chevauchent le même jour."""
+    nom_propre = personne.strip().lower()
+    for res in reservations_personne:
+        if reservation_id_ignore is not None and res.get("id") == reservation_id_ignore:
+            continue
+        if res.get("personne", "").strip().lower() == nom_propre:
+            if sont_en_chevauchement(debut, fin, res["debut"], res["fin"]):
+                nom_salle = res.get("nom_salle") or f"salle {res.get('salle_id', '')}"
+                raise ValueError(
+                    f"{personne.strip()} a déjà une réservation sur ce créneau ({res['debut']} - {res['fin']}) dans la {nom_salle}."
+                )
+
+
 def valider_reservation(
     capacite_salle: int,
     participants: int,
     debut: Union[str, time],
     fin: Union[str, time],
     reservations_existantes: List[dict],
+    personne: Optional[str] = None,
+    reservations_personne: Optional[List[dict]] = None,
     reservation_id_ignore: Optional[int] = None,
 ) -> None:
     """
     Valide l'ensemble des règles métier pour une réservation :
     - Plage horaire 8h-20h et durée 30 min à 4h
     - Capacité
-    - Chevauchement avec les réservations existantes du même jour et même salle
+    - Non-chevauchement de la salle
+    - Non-chevauchement de la personne (ne peut pas être à deux endroits à la fois)
     """
     valider_horaires(debut, fin)
     valider_capacite(participants, capacite_salle)
 
+    # 1. Non-chevauchement de la salle
     for res in reservations_existantes:
         if reservation_id_ignore is not None and res.get("id") == reservation_id_ignore:
             continue
@@ -103,6 +142,34 @@ def valider_reservation(
             raise ValueError(
                 f"La réservation chevauche une réservation existante ({res['debut']} - {res['fin']})."
             )
+
+    # 2. Non-chevauchement de la personne
+    if personne and reservations_personne:
+        valider_non_chevauchement_personne(
+            personne=personne,
+            debut=debut,
+            fin=fin,
+            reservations_personne=reservations_personne,
+            reservation_id_ignore=reservation_id_ignore,
+        )
+
+
+def generer_dates_recurrence(date_debut: Union[str, date], nb_semaines: int) -> List[date]:
+    """
+    Génère la liste des dates hebdomadaires pour une réservation récurrente.
+    nb_semaines >= 1.
+    """
+    if nb_semaines < 1:
+        raise ValueError("Le nombre de semaines doit être au moins de 1.")
+
+    if isinstance(date_debut, str):
+        d = datetime.strptime(date_debut, "%Y-%m-%d").date()
+    elif isinstance(date_debut, date):
+        d = date_debut
+    else:
+        raise TypeError("date_debut doit être une date ou une chaîne 'YYYY-MM-DD'.")
+
+    return [d + timedelta(weeks=i) for i in range(nb_semaines)]
 
 
 def obtenir_semaine(date_ref: Union[str, date]) -> Tuple[date, date, List[date]]:
@@ -144,4 +211,3 @@ def calculer_taux_occupation(reservations: List[dict]) -> float:
 
     taux = (minutes_reservees / total_minutes_ouvrables) * 100
     return round(taux, 1)
-

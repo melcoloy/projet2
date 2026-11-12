@@ -3,8 +3,11 @@ import pytest
 from regles import (
     valider_horaires,
     valider_capacite,
+    valider_type_salle,
     sont_en_chevauchement,
+    valider_non_chevauchement_personne,
     valider_reservation,
+    generer_dates_recurrence,
     obtenir_semaine,
     calculer_taux_occupation,
 )
@@ -58,6 +61,16 @@ def test_valider_capacite():
         valider_capacite(0, 20)
 
 
+def test_valider_type_salle():
+    assert valider_type_salle("Salle de cours") == "Salle de cours"
+    assert valider_type_salle("  Amphithéâtre  ") == "Amphithéâtre"
+
+    with pytest.raises(ValueError, match="ne peut pas être vide"):
+        valider_type_salle("")
+    with pytest.raises(ValueError, match="ne peut pas être vide"):
+        valider_type_salle("   ")
+
+
 def test_chevauchement():
     # Déjà réservé de 10:00 à 12:00
     # 1. 11h à 13h -> Refusée (chevauchement)
@@ -71,6 +84,39 @@ def test_chevauchement():
 
     # 4. Inclus à l'intérieur : 10:30 à 11:30
     assert sont_en_chevauchement("10:00", "12:00", "10:30", "11:30") is True
+
+
+def test_non_chevauchement_personne():
+    # Alice a déjà une réservation dans S1 de 10h à 12h
+    res_personnes = [
+        {"id": 1, "salle_id": 1, "nom_salle": "S1", "personne": "Alice", "debut": "10:00", "fin": "12:00"}
+    ]
+
+    # Alice veut réserver S2 de 11h à 13h -> Refusé : elle est déjà occupée
+    with pytest.raises(ValueError, match="Alice a déjà une réservation sur ce créneau"):
+        valider_non_chevauchement_personne("Alice", "11:00", "13:00", res_personnes)
+
+    # Insensible à la casse / espaces
+    with pytest.raises(ValueError, match="alice a déjà une réservation"):
+        valider_non_chevauchement_personne("  alice ", "10:30", "11:30", res_personnes)
+
+    # Alice réserve S2 de 12h à 13h -> Accepté (finir à 12h et commencer à 12h)
+    valider_non_chevauchement_personne("Alice", "12:00", "13:00", res_personnes)
+
+    # Bob peut réserver S2 de 10h à 12h -> Accepté (autre personne)
+    valider_non_chevauchement_personne("Bob", "10:00", "12:00", res_personnes)
+
+
+def test_generer_dates_recurrence():
+    dates = generer_dates_recurrence("2026-11-09", 4)
+    assert len(dates) == 4
+    assert dates[0] == date(2026, 11, 9)
+    assert dates[1] == date(2026, 11, 16)
+    assert dates[2] == date(2026, 11, 23)
+    assert dates[3] == date(2026, 11, 30)
+
+    with pytest.raises(ValueError, match="au moins de 1"):
+        generer_dates_recurrence("2026-11-09", 0)
 
 
 def test_cas_du_readme():
@@ -104,6 +150,24 @@ def test_cas_du_readme():
         valider_reservation(salle_capacite, 10, "08:00", "13:00", [])
 
 
+def test_valider_reservation_conflit_personne():
+    salle_capacite = 20
+    # Salle S1 libre, mais Alice est déjà occupée dans S2
+    res_personne = [
+        {"id": 5, "salle_id": 2, "nom_salle": "S2", "personne": "Alice", "debut": "14:00", "fin": "16:00"}
+    ]
+    with pytest.raises(ValueError, match="Alice a déjà une réservation"):
+        valider_reservation(
+            capacite_salle=salle_capacite,
+            participants=10,
+            debut="15:00",
+            fin="17:00",
+            reservations_existantes=[],
+            personne="Alice",
+            reservations_personne=res_personne,
+        )
+
+
 def test_obtenir_semaine():
     # 2026-11-09 est un lundi
     lundi, dimanche, jours = obtenir_semaine("2026-11-09")
@@ -125,4 +189,3 @@ def test_calculer_taux_occupation():
     res = [{"debut": "10:00", "fin": "12:00"}]
     taux = calculer_taux_occupation(res)
     assert taux == 2.4
-
